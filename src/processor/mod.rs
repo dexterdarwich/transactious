@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn u128_to_string() {
-        assert_eq!(amount_to_string(10000u128), "1.0");
+        assert_eq!(amount_to_string(10000u128), "1.0000");
         assert_eq!(amount_to_string(11000u128), "1.1000");
         assert_eq!(amount_to_string(1000u128), "0.1000");
         assert_eq!(amount_to_string(70522u128), "7.0522");
