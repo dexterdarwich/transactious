@@ -1,2 +1,5 @@
-# toy_payment_engine
-A toy payment engine
+# Transactions Processing Engine
+A toy transactions processing engine
+
+## Testing
+Sample test file: `sample1.csv1`
