@@ -1,8 +1,8 @@
-use anyhow::anyhow;
-use anyhow::Result;
 use serde::Deserialize;
 use std::env;
 use std::ffi::OsString;
+use std::error::Error;
+use std::fmt;
 
 use crate::engine;
 use crate::engine::models::TransactionStore;
@@ -21,8 +21,19 @@ struct Record<'a> {
     amount: Option<&'a str>,
 }
 
-pub fn process() -> Result<(), anyhow::Error> {
-    let file_path = get_first_arg()?;
+#[derive(Debug)]
+struct MyError(String);
+
+impl fmt::Display for MyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "There is an error: {}", self.0)
+    }
+}
+
+impl Error for MyError {}
+
+pub fn process() -> Result<(), Box<dyn Error>> {
+    let file_path = get_first_arg();
     let mut txn_store = MemoryTransactionStore::new();
     let mut processing_engine = ProcessingEngine::new(&mut txn_store);
     let mut reader = csv::ReaderBuilder::new()
@@ -54,7 +65,7 @@ pub fn process() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn record_to_txn_enum(record: &Record) -> Result<Transaction, anyhow::Error> {
+fn record_to_txn_enum(record: &Record) -> Result<Transaction, Box<dyn Error>> {
     match record.r#type {
         "deposit" => {
             let amount = get_amount(&record)?;
@@ -95,18 +106,15 @@ fn record_to_txn_enum(record: &Record) -> Result<Transaction, anyhow::Error> {
             };
             Ok(trx)
         }
-        _ => Err(anyhow!("Unsupported transaction type.")),
+        _ => Err(Box::new(MyError("Unsupported transaction type.".into()))),
     }
 }
 
-fn get_amount(record: &Record) -> Result<u128, anyhow::Error> {
-    match record.amount {
-        None => Err(anyhow!("Amount is empty for {:?}.", record)),
-        Some(x) => Ok(str_to_amount(x)?),
-    }
+fn get_amount(record: &Record) -> Result<u128, Box<dyn Error>> {
+    str_to_amount(record.amount.expect(format!("Amount is empty for {:?}.", record).as_ref()))
 }
 
-fn str_to_amount(amount_str: &str) -> Result<u128, anyhow::Error> {
+fn str_to_amount(amount_str: &str) -> Result<u128, Box<dyn Error>> {
     let split: Vec<&str> = amount_str.split('.').collect();
     let whole = split[0].parse::<u128>()? * 10000u128;
     let decimal = format!("{:0<4}", split[1]).parse::<u128>()?;
@@ -117,13 +125,8 @@ fn amount_to_string(amount: u128) -> String {
     format!("{}.{:0>4}", amount / 10000, amount % 10000)
 }
 
-fn get_first_arg() -> Result<OsString, anyhow::Error> {
-    match env::args_os().nth(1) {
-        None => Err(anyhow!(
-            "Expected input file as the first argument, but got none."
-        )),
-        Some(file_path) => Ok(file_path),
-    }
+fn get_first_arg() -> OsString {
+    env::args_os().nth(1).expect("Expected input file as the first argument, but got none.")
 }
 
 #[cfg(test)]
